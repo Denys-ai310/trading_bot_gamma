@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timezone
 import time
 from pybit.unified_trading import HTTP
 import telegram
@@ -31,6 +31,7 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+UTC = timezone.utc
 
 class TradingBot:
     def __init__(self):
