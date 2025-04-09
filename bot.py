@@ -538,5 +538,5 @@ class TradingBot:
 
 if __name__ == "__main__":
     bot = TradingBot()
-    # bot.close_all_positions()
+    bot.close_all_positions()
     bot.run()
