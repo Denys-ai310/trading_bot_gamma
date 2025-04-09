@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+*.pyc
+__pycache__
+*.log
+.venv
+venv
+.env.local
+*.csv
+*.pkl
+*.h5
+*.model 

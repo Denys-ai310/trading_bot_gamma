@@ -1,0 +1,88 @@
+2025-04-10 05:17:24,712 - ERROR - Error fetching data (attempt 1/5): You have breached the ip rate limit or your ip is from the usa. (ErrCode: 403) (ErrTime: 20:17:24).
+Request → GET https://api.bybit.com/v5/market/kline: category=linear&interval=D&limit=32&symbol=BTCUSDT.
+2025-04-10 05:17:24,712 - INFO - Retrying in 3 seconds...
+2025-04-10 05:17:28,023 - ERROR - Error fetching data (attempt 2/5): You have breached the ip rate limit or your ip is from the usa. (ErrCode: 403) (ErrTime: 20:17:28).
+Request → GET https://api.bybit.com/v5/market/kline: category=linear&interval=D&limit=32&symbol=BTCUSDT.
+2025-04-10 05:17:28,024 - INFO - Retrying in 6 seconds...
+2025-04-10 05:17:34,338 - ERROR - Error fetching data (attempt 3/5): You have breached the ip rate limit or your ip is from the usa. (ErrCode: 403) (ErrTime: 20:17:34).
+Request → GET https://api.bybit.com/v5/market/kline: category=linear&interval=D&limit=32&symbol=BTCUSDT.
+2025-04-10 05:17:34,339 - INFO - Retrying in 12 seconds...
+2025-04-10 05:17:46,653 - ERROR - Error fetching data (attempt 4/5): You have breached the ip rate limit or your ip is from the usa. (ErrCode: 403) (ErrTime: 20:17:46).
+Request → GET https://api.bybit.com/v5/market/kline: category=linear&interval=D&limit=32&symbol=BTCUSDT.
+2025-04-10 05:17:46,654 - INFO - Retrying in 24 seconds...
+2025-04-10 05:18:50,506 - INFO - Starting place_order method
+2025-04-10 05:18:51,207 - ERROR - Error placing order: ab not enough for new order (ErrCode: 110007) (ErrTime: 20:18:51).
+Request → POST https://api.bybit.com/v5/order/create: {"category": "linear", "symbol": "BTCUSDT", "side": "Buy", "orderType": "Market", "qty": "0.002", "price": "82124.8", "takeProfit": "82206.9", "stopLoss": "82042.7"}.
+2025-04-10 05:18:51,993 - INFO - HTTP Request: POST https://api.telegram.org/bot7553869746:AAHogIfoZg_stNfwZDTUvTWCmfV1kj6Dhv8/sendMessage "HTTP/1.1 200 OK"
+2025-04-10 05:18:51,994 - INFO - Telegram message sent: Error placing order: ab not enough for new order (ErrCode: 110007) (ErrTime: 20:18:51).
+Request → POST https://api.bybit.com/v5/order/create: {"category": "linear", "symbol": "BTCUSDT", "side": "Buy", "orderType": "Market", "qty": "0.002", "price": "82124.8", "takeProfit": "82206.9", "stopLoss": "82042.7"}.
+2025-04-10 05:19:57,121 - INFO - Starting place_order method
+2025-04-10 05:19:57,372 - ERROR - Error placing order: ab not enough for new order (ErrCode: 110007) (ErrTime: 20:19:57).
+Request → POST https://api.bybit.com/v5/order/create: {"category": "linear", "symbol": "BTCUSDT", "side": "Buy", "orderType": "Market", "qty": "0.002", "price": "82120", "takeProfit": "82202.1", "stopLoss": "82037.9"}.
+2025-04-10 05:19:58,146 - INFO - HTTP Request: POST https://api.telegram.org/bot7553869746:AAHogIfoZg_stNfwZDTUvTWCmfV1kj6Dhv8/sendMessage "HTTP/1.1 200 OK"
+2025-04-10 05:19:58,147 - INFO - Telegram message sent: Error placing order: ab not enough for new order (ErrCode: 110007) (ErrTime: 20:19:57).
+Request → POST https://api.bybit.com/v5/order/create: {"category": "linear", "symbol": "BTCUSDT", "side": "Buy", "orderType": "Market", "qty": "0.002", "price": "82120", "takeProfit": "82202.1", "stopLoss": "82037.9"}.
+2025-04-10 05:20:25,029 - INFO - Starting place_order method
+2025-04-10 05:20:25,285 - ERROR - Error placing order: ab not enough for new order (ErrCode: 110007) (ErrTime: 20:20:25).
+Request → POST https://api.bybit.com/v5/order/create: {"category": "linear", "symbol": "BTCUSDT", "side": "Buy", "orderType": "Market", "qty": "0.002", "price": "82169.1", "takeProfit": "82251.3", "stopLoss": "82086.9"}.
+2025-04-10 05:20:26,044 - INFO - HTTP Request: POST https://api.telegram.org/bot7553869746:AAHogIfoZg_stNfwZDTUvTWCmfV1kj6Dhv8/sendMessage "HTTP/1.1 200 OK"
+2025-04-10 05:20:26,046 - INFO - Telegram message sent: Error placing order: ab not enough for new order (ErrCode: 110007) (ErrTime: 20:20:25).
+Request → POST https://api.bybit.com/v5/order/create: {"category": "linear", "symbol": "BTCUSDT", "side": "Buy", "orderType": "Market", "qty": "0.002", "price": "82169.1", "takeProfit": "82251.3", "stopLoss": "82086.9"}.
+2025-04-10 05:22:36,400 - INFO - HTTP Request: POST https://api.telegram.org/bot7553869746:AAHogIfoZg_stNfwZDTUvTWCmfV1kj6Dhv8/sendMessage "HTTP/1.1 200 OK"
+2025-04-10 05:22:36,402 - INFO - Telegram message sent: Closed position:
+Side: Buy
+Size: 0.001
+Entry Price: 82495.7
+2025-04-10 05:22:56,226 - INFO - HTTP Request: POST https://api.telegram.org/bot7553869746:AAHogIfoZg_stNfwZDTUvTWCmfV1kj6Dhv8/sendMessage "HTTP/1.1 200 OK"
+2025-04-10 05:22:56,226 - INFO - Telegram message sent: All positions have been closed
+2025-04-10 05:23:19,519 - ERROR - Insufficient BTC balance. Have: 3.7e-07, Need minimum: 1.2e-05
+2025-04-10 05:23:20,135 - INFO - HTTP Request: POST https://api.telegram.org/bot7553869746:AAHogIfoZg_stNfwZDTUvTWCmfV1kj6Dhv8/sendMessage "HTTP/1.1 200 OK"
+2025-04-10 05:23:20,140 - INFO - Telegram message sent: Error placing order: Insufficient BTC balance. Have: 3.7e-07, Need minimum: 1.2e-05
+2025-04-10 05:23:34,423 - ERROR - Insufficient BTC balance. Have: 3.7e-07, Need minimum: 1.2e-05
+2025-04-10 05:23:35,057 - INFO - HTTP Request: POST https://api.telegram.org/bot7553869746:AAHogIfoZg_stNfwZDTUvTWCmfV1kj6Dhv8/sendMessage "HTTP/1.1 200 OK"
+2025-04-10 05:23:35,060 - INFO - Telegram message sent: Error placing order: Insufficient BTC balance. Have: 3.7e-07, Need minimum: 1.2e-05
+2025-04-10 05:23:49,039 - ERROR - Insufficient BTC balance. Have: 3.7e-07, Need minimum: 1.2e-05
+2025-04-10 05:23:49,682 - INFO - HTTP Request: POST https://api.telegram.org/bot7553869746:AAHogIfoZg_stNfwZDTUvTWCmfV1kj6Dhv8/sendMessage "HTTP/1.1 200 OK"
+2025-04-10 05:23:49,685 - INFO - Telegram message sent: Error placing order: Insufficient BTC balance. Have: 3.7e-07, Need minimum: 1.2e-05
+2025-04-10 05:24:02,058 - INFO - Starting place_order method
+2025-04-10 05:24:02,311 - INFO - Order placed successfully: {'retCode': 0, 'retMsg': 'OK', 'result': {'orderId': '648d0325-77d3-4a17-ae54-644b1de0a2a0', 'orderLinkId': ''}, 'retExtInfo': {}, 'time': 1744230241913}
+2025-04-10 05:24:02,312 - INFO - Starting trade monitoring
+2025-04-10 05:24:02,312 - INFO - Entering monitor_trade method
+2025-04-10 05:24:02,312 - INFO - Checking trade status
+2025-04-10 05:24:02,433 - INFO - Waiting 3 seconds before next check
+2025-04-10 05:24:05,435 - INFO - Checking trade status
+2025-04-10 05:24:05,564 - INFO - Waiting 3 seconds before next check
+2025-04-10 05:24:08,566 - INFO - Checking trade status
+2025-04-10 05:24:08,693 - INFO - Waiting 3 seconds before next check
+2025-04-10 05:24:11,694 - INFO - Checking trade status
+2025-04-10 05:24:11,820 - INFO - Waiting 3 seconds before next check
+2025-04-10 05:24:14,821 - INFO - Checking trade status
+2025-04-10 05:24:14,948 - INFO - Waiting 3 seconds before next check
+2025-04-10 05:24:17,949 - INFO - Checking trade status
+2025-04-10 05:24:18,076 - INFO - Waiting 3 seconds before next check
+2025-04-10 05:24:21,078 - INFO - Checking trade status
+2025-04-10 05:24:21,204 - INFO - Waiting 3 seconds before next check
+2025-04-10 05:24:24,206 - INFO - Checking trade status
+2025-04-10 05:24:24,328 - INFO - Waiting 3 seconds before next check
+2025-04-10 05:24:27,328 - INFO - Checking trade status
+2025-04-10 05:24:27,454 - INFO - Waiting 3 seconds before next check
+2025-04-10 05:24:30,456 - INFO - Checking trade status
+2025-04-10 05:24:30,582 - INFO - Waiting 3 seconds before next check
+2025-04-10 05:24:33,584 - INFO - Checking trade status
+2025-04-10 05:24:34,503 - INFO - HTTP Request: POST https://api.telegram.org/bot7553869746:AAHogIfoZg_stNfwZDTUvTWCmfV1kj6Dhv8/sendMessage "HTTP/1.1 200 OK"
+2025-04-10 05:24:34,504 - INFO - Telegram message sent: Trade Order Executed
+
+Model: TA
+Direction: Long 📈
+Pair: BTCUSDT
+Leverage: 1x
+Initial Position: $164.22
+Order Closed: $164.05 (-0%)
+Reason: SL Reached
+
+Trade Breakdown:
+
+• Entry: $82110.0
+• Exit: $82026.7
+• PNL: $-0.17 (-0.10%)
+• PNL (No Fees): +$0.16 (+0.10%)
