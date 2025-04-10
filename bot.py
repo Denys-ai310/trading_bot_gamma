@@ -40,16 +40,16 @@ class TradingBot:
         self.api_secret = "KxuD5pVBCJW9aMLCX3Vd5uY3Hm2MEZvMuUP6"
         
         # Telegram credentials
-        self.telegram_token = "7553869746:AAHogIfoZg_stNfwZDTUvTWCmfV1kj6Dhv8"
-        self.telegram_chat_id = "7936284019"
+        self.telegram_token = "7382067227:AAGniEN3og9wt8B49RT3LbQ8E31up8tYYqs"
+        self.telegram_chat_id = "-1002433151362"
         
         # Trading parameters
         self.symbol = "BTCUSDT"
         self.leverage = 1
-        # self.take_profit_pct = 100  # 100% TP
-        self.take_profit_pct = 0.1
-        # self.stop_loss_pct = 4      # 4% SL
-        self.stop_loss_pct = 0.1
+        self.take_profit_pct = 100  # 100% TP
+        # self.take_profit_pct = 0.1
+        self.stop_loss_pct = 4      # 4% SL
+        # self.stop_loss_pct = 0.1
         self.timeframe = "D"        # Daily timeframe
         self.window_size = 32       # As per your trained model
         
@@ -312,14 +312,14 @@ class TradingBot:
                     elif current_price >= stop_loss:
                         await self.notify_trade_closure(current_price, "SL Reached")
                         break
-                logging.info("Waiting 5 seconds before next check")
-                print("waiting 5 seconds before next check")
+                logging.info("Waiting 5 minutes before next check")
+                print("waiting 5 minutes before next check")
                 # Wait before checking again
-                await asyncio.sleep(5)  # Check every 5 seconds
+                await asyncio.sleep(300)  # Check every 300 seconds
                 
             except Exception as e:
                 logging.error(f"Error monitoring trade: {e}")
-                await asyncio.sleep(3)  # Wait before retrying
+                await asyncio.sleep(300)  # Wait before retrying
 
     def generate_weekly_report(self):
         """Generate weekly performance report"""       
@@ -456,95 +456,93 @@ class TradingBot:
 
             while True:
                 current_time = datetime.now(UTC)
+                if current_time.hour == 0 and current_time.minute == 0:
                 
-                # Wait until the start of the next minute (00 seconds)
-                if current_time.second != 0:
-                    await asyncio.sleep(1)
-                    continue
-                if self.trade_history:
-                    # if current_time.weekday() == 6 and (current_time.minute % 3 == 0):
-                    if (current_time.minute % 3 == 0):
-                        report = self.generate_weekly_report()
-                        await self.send_telegram_message(report)                                                
-                        continue 
-                    
-                # Get historical data
-                df = self.get_historical_data()
-                if df is not None:
-                    # Prepare model input
-                    model_input = self.prepare_model_input(df)
-                    
-                    # Get prediction
-                    prediction = self.model.predict(model_input)
-                    direction = "long" if prediction[0] > 0 else "short"
-                    
-                    # Get account balance and calculate position size
-                    account_info = self.bybit_client.get_wallet_balance(
-                        accountType="UNIFIED"
-                    )
-                    print("account_info:", account_info)
-                    logging.info(f"account_info: {account_info}")
-
-                    ticker = self.bybit_client.get_tickers(
-                        category="linear",
-                        symbol=self.symbol
-                    )
-                    current_price = float(ticker['result']['list'][0]['lastPrice'])
-                    
-                    # Initialize balances
-                    btc_balance = 0
-                    usdt_balance = 0
-                    MIN_USDT_QTY = 1  # Minimum BTC order quantity
-                    MAX_USDT_QTY = 8000000     # Maximum BTC order quantity
-                    MIN_BTC_QTY = round(MIN_USDT_QTY/current_price * 1e6) / 1e6
-                    MAX_BTC_QTY = math.floor(MAX_USDT_QTY/current_price * 1e6) / 1e6
-                    
-                    if account_info and 'result' in account_info and 'list' in account_info['result']:
-                        if direction == "long":
-                            wallet_info = next((coin for coin in account_info['result']['list'][0]['coin'] if coin['coin'] == 'USDT'), None)
-                            if wallet_info:
-                                usdt_balance = float(wallet_info['walletBalance'])
-                            else:
-                                usdt_balance = 0
-
-                            if usdt_balance < MIN_USDT_QTY:
-                                message = f"Predicted Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\nInsufficient USDT balance.\nHave: {usdt_balance}\nNeed minimum: {MIN_USDT_QTY}"
-                                logging.error(message)
-                                await self.send_telegram_message(message)
-                                await asyncio.sleep(55)  # Wait until near the next minute
-                                continue
-                                
-                            balance = usdt_balance/current_price
-                            balance = min(balance, MAX_BTC_QTY)
-                            balance = math.floor(balance * 1e5) / 1e5
-                        else:
-                            wallet_info = next((coin for coin in account_info['result']['list'][0]['coin'] if coin['coin'] == 'BTC'), None)
-                            if wallet_info:
-                                btc_balance = float(wallet_info['walletBalance'])
-                            else:
-                                btc_balance = 0
+                    if self.trade_history:
+                        if current_time.weekday() == 6:
                             
-                            if btc_balance < MIN_BTC_QTY:
-                                message = f"Predicted Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\nInsufficient BTC balance.\nHave: {btc_balance}\nNeed minimum: {MIN_BTC_QTY}"
-                                logging.error(message)
-                                await self.send_telegram_message(message)
-                                await asyncio.sleep(55)  # Wait until near the next minute
-                                continue
+                        # if (current_time.minute % 3 == 0):
+                            report = self.generate_weekly_report()
+                            await self.send_telegram_message(report)                                                
+                            continue 
+                        
+                    # Get historical data
+                    df = self.get_historical_data()
+                    if df is not None:
+                        # Prepare model input
+                        model_input = self.prepare_model_input(df)
+                        
+                        # Get prediction
+                        prediction = self.model.predict(model_input)
+                        direction = "long" if prediction[0] > 0 else "short"
+                        
+                        # Get account balance and calculate position size
+                        account_info = self.bybit_client.get_wallet_balance(
+                            accountType="UNIFIED"
+                        )
+                        print("account_info:", account_info)
+                        logging.info(f"account_info: {account_info}")
+
+                        ticker = self.bybit_client.get_tickers(
+                            category="linear",
+                            symbol=self.symbol
+                        )
+                        current_price = float(ticker['result']['list'][0]['lastPrice'])
+                        
+                        # Initialize balances
+                        btc_balance = 0
+                        usdt_balance = 0
+                        MIN_USDT_QTY = 1  # Minimum BTC order quantity
+                        MAX_USDT_QTY = 8000000     # Maximum BTC order quantity
+                        MIN_BTC_QTY = round(MIN_USDT_QTY/current_price * 1e6) / 1e6
+                        MAX_BTC_QTY = math.floor(MAX_USDT_QTY/current_price * 1e6) / 1e6
+                        
+                        if account_info and 'result' in account_info and 'list' in account_info['result']:
+                            if direction == "long":
+                                wallet_info = next((coin for coin in account_info['result']['list'][0]['coin'] if coin['coin'] == 'USDT'), None)
+                                if wallet_info:
+                                    usdt_balance = float(wallet_info['walletBalance'])
+                                else:
+                                    usdt_balance = 0
+
+                                if usdt_balance < MIN_USDT_QTY:
+                                    message = f"Predicted Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\nInsufficient USDT balance.\nHave: {usdt_balance}\nNeed minimum: {MIN_USDT_QTY}"
+                                    logging.error(message)
+                                    await self.send_telegram_message(message)
+                                    await asyncio.sleep(86395)  
+                                    continue
+                                    
+                                balance = usdt_balance/current_price
+                                balance = min(balance, MAX_BTC_QTY)
+                                balance = math.floor(balance * 1e5) / 1e5
+                            else:
+                                wallet_info = next((coin for coin in account_info['result']['list'][0]['coin'] if coin['coin'] == 'BTC'), None)
+                                if wallet_info:
+                                    btc_balance = float(wallet_info['walletBalance'])
+                                else:
+                                    btc_balance = 0
                                 
-                            balance = min(btc_balance, MAX_BTC_QTY)
-                            balance = math.floor(balance * 1e5) / 1e5
-                        
-                        # Place the trade
-                        self.place_order(direction, balance)
-                        
-                        # Wait for 1 minute
-                        await asyncio.sleep(55)  # Sleep for 55 seconds (accounting for processing time)
-                        
-                        # Close all positions
-                        self.close_all_positions()
-                        
-                        # Small delay before next iteration
-                        await asyncio.sleep(1)
+                                if btc_balance < MIN_BTC_QTY:
+                                    message = f"Predicted Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\nInsufficient BTC balance.\nHave: {btc_balance}\nNeed minimum: {MIN_BTC_QTY}"
+                                    logging.error(message)
+                                    await self.send_telegram_message(message)
+                                    await asyncio.sleep(86395)  
+                                    continue
+                                    
+                                balance = min(btc_balance, MAX_BTC_QTY)
+                                balance = math.floor(balance * 1e5) / 1e5
+                            
+                            # Place the trade
+                            self.place_order(direction, balance)
+                            
+                            # Wait for 1 minute
+                            await asyncio.sleep(86395) 
+                            
+                            # Close all positions
+                            self.close_all_positions()
+                            
+                            # Small delay before next iteration
+                            await asyncio.sleep(1)
                 
         except Exception as e:
             logging.error(f"Error in main loop: {e}")
