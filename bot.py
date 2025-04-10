@@ -47,9 +47,9 @@ class TradingBot:
         self.symbol = "BTCUSDT"
         self.leverage = 1
         # self.take_profit_pct = 100  # 100% TP
-        self.take_profit_pct = 0.03
+        self.take_profit_pct = 0.1
         # self.stop_loss_pct = 4      # 4% SL
-        self.stop_loss_pct = 0.03
+        self.stop_loss_pct = 0.1
         self.timeframe = "D"        # Daily timeframe
         self.window_size = 32       # As per your trained model
         
@@ -75,16 +75,14 @@ class TradingBot:
 
     async def send_telegram_message(self, message: str):
         """Send message to Telegram"""
-        
-        await self.telegram_bot.send_message(
-            chat_id=self.telegram_chat_id,
-            text=message
-        )
-        logging.info(f"Telegram message sent: {message}")
-        print("telegram message sent")
-        os._exit(0)
-        
-        
+        try:
+            await self.telegram_bot.send_message(
+                chat_id=self.telegram_chat_id,
+                text=message
+            )
+            logging.info(f"Telegram message sent: {message}")
+        except Exception as e:
+            logging.error(f"Error sending Telegram message: {e}")
 
     def get_historical_data(self) -> pd.DataFrame:
         """Fetch historical data from Bybit"""
@@ -239,7 +237,6 @@ class TradingBot:
                 side=_side,
                 orderType="Market",
                 qty=quantity,
-                # marketUnit=_unit
                 price=current_price,
                 takeProfit=take_profit,
                 stopLoss=stop_loss
@@ -263,31 +260,29 @@ class TradingBot:
             self.current_position = order_info
             
             # Format message according to the new template
-            # message = (f"Trade Order Executed\n\n"
-            #           f"Model: PPO\n"
-            #           f"Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\n"
-            #           f"Pair: {self.symbol}\n"
-            #           f"Leverage: {self.leverage}x\n"
-            #           f"Initial Position: ${initial_position:.2f}\n\n"
-            #           f"Trade Breakdown:\n\n"
-            #           f"• Entry: ${current_price:.1f}\n"
-            #           f"• TP: ${take_profit:.1f}\n"
-            #           f"• SL: ${stop_loss:.1f}\n")
-            
-            # asyncio.run(self.send_telegram_message(message))
+            message = (f"Trade Order Executed\n\n"
+                      f"Model: PPO\n"
+                      f"Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\n"
+                      f"Pair: {self.symbol}\n"
+                      f"Leverage: {self.leverage}x\n"
+                      f"Initial Position: ${initial_position:.2f}\n\n"
+                      f"Trade Breakdown:\n\n"
+                      f"• Entry: ${current_price:.1f}\n"
+                      f"• TP: ${take_profit:.1f}\n"
+                      f"• SL: ${stop_loss:.1f}\n")
+            logging.info(message)          
             
 
             # Start monitoring for TP/SL
             print("starting trade monitoring")
             logging.info("Starting trade monitoring")
-            self.monitor_trade(take_profit, stop_loss)
+            asyncio.create_task(self.monitor_trade(take_profit, stop_loss))
             return
             
         except Exception as e:
             logging.error(f"Error placing order: {e}")
-            asyncio.run(self.send_telegram_message(f"Error placing order: {e}"))
 
-    def monitor_trade(self, take_profit: float, stop_loss: float):
+    async def monitor_trade(self, take_profit: float, stop_loss: float):
         """Monitor the trade for take profit or stop loss conditions"""
         logging.info("Entering monitor_trade method")
         print("entering monitor_trade method")
@@ -305,31 +300,29 @@ class TradingBot:
                 # Check for take profit or stop loss
                 if self.current_position["direction"] == "long":
                     if current_price >= take_profit:
-                        self.notify_trade_closure(current_price, "TP Reached")
+                        await self.notify_trade_closure(current_price, "TP Reached")
                         break
                     elif current_price <= stop_loss:
-                        self.notify_trade_closure(current_price, "SL Reached")
+                        await self.notify_trade_closure(current_price, "SL Reached")
                         break
                 else:  # short position
                     if current_price <= take_profit:
-                        self.notify_trade_closure(current_price, "TP Reached")
+                        await self.notify_trade_closure(current_price, "TP Reached")
                         break
                     elif current_price >= stop_loss:
-                        self.notify_trade_closure(current_price, "SL Reached")
+                        await self.notify_trade_closure(current_price, "SL Reached")
                         break
-                logging.info("Waiting 3 seconds before next check")
-                print("waiting 3 seconds before next check")
+                logging.info("Waiting 5 seconds before next check")
+                print("waiting 5 seconds before next check")
                 # Wait before checking again
-                time.sleep(3)  # Check every minute
+                await asyncio.sleep(5)  # Check every 5 seconds
                 
             except Exception as e:
                 logging.error(f"Error monitoring trade: {e}")
-                time.sleep(3)  # Wait before retrying
+                await asyncio.sleep(3)  # Wait before retrying
 
     def generate_weekly_report(self):
-        """Generate weekly performance report"""
-        if not self.trade_history:
-            return "No trades to report"
+        """Generate weekly performance report"""       
             
         # Calculate profit for each trade
         for trade in self.trade_history:
@@ -342,15 +335,19 @@ class TradingBot:
                 trade['profit'] = 0  # If trade is still open
                 
         df = pd.DataFrame(self.trade_history)
+        
+        # Only consider completed trades (those with profit calculated)
+        completed_trades = df[df['profit'] != 0]
+        
         weekly_stats = {
-            "total_trades": len(df),
-            "winning_trades": len(df[df['profit'] > 0]),
-            "losing_trades": len(df[df['profit'] < 0]),
-            "total_profit": df['profit'].sum(),
-            "win_rate": len(df[df['profit'] > 0]) / len(df) * 100 if len(df) > 0 else 0
+            "total_trades": len(completed_trades),
+            "winning_trades": len(completed_trades[completed_trades['profit'] > 0]),
+            "losing_trades": len(completed_trades[completed_trades['profit'] < 0]),
+            "total_profit": completed_trades['profit'].sum(),
+            "win_rate": len(completed_trades[completed_trades['profit'] > 0]) / len(completed_trades) * 100 if len(completed_trades) > 0 else 0
         }
         
-        report = (f"Weekly Trading Report\n"
+        report = (f"Weekly Trading Report\n\n"
                  f"Total Trades: {weekly_stats['total_trades']}\n"
                  f"Win Rate: {weekly_stats['win_rate']:.2f}%\n"
                  f"Total Profit: {weekly_stats['total_profit']:.2f}%\n"
@@ -359,7 +356,7 @@ class TradingBot:
                  
         return report
 
-    def notify_trade_closure(self, exit_price: float, reason: str):
+    async def notify_trade_closure(self, exit_price: float, reason: str):
         """Send notification when a trade is closed"""
         if not self.current_position:
             return
@@ -378,13 +375,23 @@ class TradingBot:
         pnl_no_fees = pnl + fees
         pnl_no_fees_percentage = (pnl_no_fees / initial_position) * 100
         
+        # Update the last trade in trade_history with exit information
+        if self.trade_history:
+            last_trade = self.trade_history[-1]
+            last_trade.update({
+                "exit_price": exit_price,
+                "reason": reason,
+                "pnl": pnl,
+                "pnl_percentage": pnl_percentage
+            })
+        
         message = (f"Trade Order Executed\n\n"
-                  f"Model: TA\n"
+                  f"Model: PPO\n"
                   f"Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\n"
                   f"Pair: {self.symbol}\n"
                   f"Leverage: {self.leverage}x\n"
                   f"Initial Position: ${initial_position:.2f}\n"
-                  f"Order Closed: ${final_position:.2f} ({pnl_percentage:.0f}%)\n"
+                  f"Order Closed: ${final_position:.2f} ({pnl_percentage:.2f}%)\n"
                   f"Reason: {reason}\n\n"
                   f"Trade Breakdown:\n\n"
                   f"• Entry: ${entry_price:.1f}\n"
@@ -392,12 +399,11 @@ class TradingBot:
                   f"• PNL: {'+' if pnl >= 0 else ''}${pnl:.2f} ({'+' if pnl_percentage >= 0 else ''}{pnl_percentage:.2f}%)\n"
                   f"• PNL (No Fees): {'+' if pnl_no_fees >= 0 else ''}${pnl_no_fees:.2f} ({'+' if pnl_no_fees_percentage >= 0 else ''}{pnl_no_fees_percentage:.2f}%)")
         
-        asyncio.run(self.send_telegram_message(message))
+        await self.send_telegram_message(message)
         
         # Clear current position after closure
         self.current_position = None
-        return
-    
+
     def close_all_positions(self):
         """Close all open positions"""
         try:
@@ -424,41 +430,52 @@ class TradingBot:
                         )
                         
                         message = f"Closed position:\nSide: {position['side']}\nSize: {quantity}\nEntry Price: {position['avgPrice']}"
-                        asyncio.run(self.send_telegram_message(message))
                         logging.info(f"Closed position: {message}")
             
             message = "All positions have been closed"
-            # asyncio.run(self.send_telegram_message(message))
             logging.info(message)
             return
             
         except Exception as e:
             error_msg = f"Error closing positions: {str(e)}"
             logging.error(error_msg)
-            asyncio.run(self.send_telegram_message(error_msg))
             return
         
 
-    def run(self):
+    async def run(self):
         """Main trading loop"""
         try:
-            # Get current time
-            # current_time = datetime.now(UTC)
-            # For testing purposes, if you need a specific time, use:
-            current_time = datetime(2025, 4, 7, tzinfo=UTC)
-            # Check if it's time for daily prediction (e.g., at 00:00 UTC)
-            if current_time.hour == 0 and current_time.minute == 0:
+            # Send welcome message when bot starts
+            welcome_message = (
+                "Good day everyone, we have now paused the TA trade\n"
+                "notification and will be going live with the Gamma model which\n"
+                "will be opening a trade on either a long or short position every\n"
+                "24hr at 00:00UTC"
+            )
+            await self.send_telegram_message(welcome_message)
+
+            while True:
+                current_time = datetime.now(UTC)
+                
+                # Wait until the start of the next minute (00 seconds)
+                if current_time.second != 0:
+                    await asyncio.sleep(1)
+                    continue
+                if self.trade_history:
+                    # if current_time.weekday() == 6 and (current_time.minute % 3 == 0):
+                    if (current_time.minute % 3 == 0):
+                        report = self.generate_weekly_report()
+                        await self.send_telegram_message(report)                                                
+                        continue 
+                    
                 # Get historical data
                 df = self.get_historical_data()
-                print(df.head())
                 if df is not None:
                     # Prepare model input
                     model_input = self.prepare_model_input(df)
-                    print("model_input:", model_input)
                     
                     # Get prediction
                     prediction = self.model.predict(model_input)
-                    print("prediction:", prediction)
                     direction = "long" if prediction[0] > 0 else "short"
                     
                     # Get account balance and calculate position size
@@ -466,6 +483,7 @@ class TradingBot:
                         accountType="UNIFIED"
                     )
                     print("account_info:", account_info)
+                    logging.info(f"account_info: {account_info}")
 
                     ticker = self.bybit_client.get_tickers(
                         category="linear",
@@ -473,71 +491,66 @@ class TradingBot:
                     )
                     current_price = float(ticker['result']['list'][0]['lastPrice'])
                     
-                    # Initialize btc_balance
+                    # Initialize balances
                     btc_balance = 0
                     usdt_balance = 0
                     MIN_USDT_QTY = 1  # Minimum BTC order quantity
                     MAX_USDT_QTY = 8000000     # Maximum BTC order quantity
-                    MIN_BTC_QTY = math.floor(MIN_USDT_QTY/current_price * 1e6) / 1e6
+                    MIN_BTC_QTY = round(MIN_USDT_QTY/current_price * 1e6) / 1e6
                     MAX_BTC_QTY = math.floor(MAX_USDT_QTY/current_price * 1e6) / 1e6
                     
                     if account_info and 'result' in account_info and 'list' in account_info['result']:
                         if direction == "long":
-                            # Get USDT balance
                             wallet_info = next((coin for coin in account_info['result']['list'][0]['coin'] if coin['coin'] == 'USDT'), None)
                             if wallet_info:
                                 usdt_balance = float(wallet_info['walletBalance'])
                             else:
                                 usdt_balance = 0
 
-                            # For buying, ensure we have enough USDT and meet minimum requirements
                             if usdt_balance < MIN_USDT_QTY:
-                                error_msg = f"Insufficient USDT balance. Have: {usdt_balance}, Need minimum: {MIN_USDT_QTY}"
-                                logging.error(error_msg)
-                                asyncio.run(self.send_telegram_message(f"Error placing order: {error_msg}"))
-                                return
+                                message = f"Predicted Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\nInsufficient USDT balance.\nHave: {usdt_balance}\nNeed minimum: {MIN_USDT_QTY}"
+                                logging.error(message)
+                                await self.send_telegram_message(message)
+                                await asyncio.sleep(55)  # Wait until near the next minute
+                                continue
+                                
                             balance = usdt_balance/current_price
-                            balance = min(balance, MAX_USDT_QTY)  # Don't use max() here as we can't spend more than we have
-                            # Floor to 2 decimal places for USDT
-                            balance = math.floor(balance * 1e3) / 1e3
+                            balance = min(balance, MAX_BTC_QTY)
+                            balance = math.floor(balance * 1e5) / 1e5
                         else:
-                            # Get BTC balance
                             wallet_info = next((coin for coin in account_info['result']['list'][0]['coin'] if coin['coin'] == 'BTC'), None)
                             if wallet_info:
                                 btc_balance = float(wallet_info['walletBalance'])
                             else:
                                 btc_balance = 0
                             
-                            # For selling, ensure we have enough BTC and meet minimum requirements
                             if btc_balance < MIN_BTC_QTY:
-                                error_msg = f"Insufficient BTC balance. Have: {btc_balance}, Need minimum: {MIN_BTC_QTY}"
-                                logging.error(error_msg)
-                                asyncio.run(self.send_telegram_message(f"Error placing order: {error_msg}"))
-                                return
+                                message = f"Predicted Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\nInsufficient BTC balance.\nHave: {btc_balance}\nNeed minimum: {MIN_BTC_QTY}"
+                                logging.error(message)
+                                await self.send_telegram_message(message)
+                                await asyncio.sleep(55)  # Wait until near the next minute
+                                continue
                                 
-                            balance = min(btc_balance, MAX_BTC_QTY)  # Don't use max() here as we can't sell more than we have
-                            # Floor to 6 decimal places for BTC
-                            balance = math.floor(balance * 1e3) / 1e3
+                            balance = min(btc_balance, MAX_BTC_QTY)
+                            balance = math.floor(balance * 1e5) / 1e5
                         
-                        print(f"{'USDT' if direction == 'long' else 'BTC'} balance for order:", balance)
                         # Place the trade
                         self.place_order(direction, balance)
                         
-                    print("current_time_weekday:", current_time.weekday())
-                    # Generate and send weekly report on Sundays
-                    if current_time.weekday() == 6:
-                        report = self.generate_weekly_report()
-                        asyncio.run(self.send_telegram_message(report))
-                        return  # Exit after sending report
-                    
-                return  # Exit if no data or other conditions not met
+                        # Wait for 1 minute
+                        await asyncio.sleep(55)  # Sleep for 55 seconds (accounting for processing time)
+                        
+                        # Close all positions
+                        self.close_all_positions()
+                        
+                        # Small delay before next iteration
+                        await asyncio.sleep(1)
                 
         except Exception as e:
             logging.error(f"Error in main loop: {e}")
-            asyncio.run(self.send_telegram_message(f"Error in main loop: {e}"))
             return  # Exit on error
 
 if __name__ == "__main__":
     bot = TradingBot()
     bot.close_all_positions()
-    bot.run()
+    asyncio.run(bot.run())
