@@ -47,9 +47,9 @@ class TradingBot:
         self.symbol = "BTCUSDT"
         self.leverage = 1
         # self.take_profit_pct = 100  # 100% TP
-        self.take_profit_pct = 0.05
+        self.take_profit_pct = 0.1
         # self.stop_loss_pct = 4      # 4% SL
-        self.stop_loss_pct = 0.05
+        self.stop_loss_pct = 0.1
         self.timeframe = "D"        # Daily timeframe
         self.window_size = 32       # As per your trained model
         
@@ -82,7 +82,8 @@ class TradingBot:
         )
         logging.info(f"Telegram message sent: {message}")
         print("telegram message sent")
-        return  # Stop here after sending message
+        os._exit(0)
+        
         
 
     def get_historical_data(self) -> pd.DataFrame:
@@ -427,7 +428,7 @@ class TradingBot:
                         logging.info(f"Closed position: {message}")
             
             message = "All positions have been closed"
-            asyncio.run(self.send_telegram_message(message))
+            # asyncio.run(self.send_telegram_message(message))
             logging.info(message)
             return
             
