@@ -47,9 +47,9 @@ class TradingBot:
         self.symbol = "BTCUSDT"
         self.leverage = 1
         # self.take_profit_pct = 100  # 100% TP
-        self.take_profit_pct = 0.1
+        self.take_profit_pct = 0.03
         # self.stop_loss_pct = 4      # 4% SL
-        self.stop_loss_pct = 0.1
+        self.stop_loss_pct = 0.03
         self.timeframe = "D"        # Daily timeframe
         self.window_size = 32       # As per your trained model
         
