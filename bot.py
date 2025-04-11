@@ -42,6 +42,7 @@ class TradingBot:
         # Telegram credentials
         self.telegram_token = "7382067227:AAGniEN3og9wt8B49RT3LbQ8E31up8tYYqs"
         self.telegram_chat_id = "-1002433151362"
+        self.telegram_thread_id = 110  # Default thread ID
         
         # Trading parameters
         self.symbol = "BTCUSDT"
@@ -78,7 +79,8 @@ class TradingBot:
         try:
             await self.telegram_bot.send_message(
                 chat_id=self.telegram_chat_id,
-                text=message
+                text=message,
+                message_thread_id=self.telegram_thread_id
             )
             logging.info(f"Telegram message sent: {message}")
         except Exception as e:
