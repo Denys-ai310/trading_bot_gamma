@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import time
 from pybit.unified_trading import HTTP
 import telegram
@@ -95,7 +95,7 @@ class TradingBot:
             try:
                 # Add timeout to the API call
                 klines = self.bybit_client.get_kline(
-                    category="linear",
+                    category="spot",
                     symbol=self.symbol,
                     interval=self.timeframe,
                     limit=self.window_size
@@ -202,13 +202,13 @@ class TradingBot:
             logging.error(f"Error preparing model input: {e}")
             return np.array([])  # Return empty array on error
 
-    def place_order(self, direction: str, quantity: float):
+    async def place_order(self, direction: str, quantity: float):
         """Place order on Bybit"""
         try:
             logging.info("Starting place_order method")
             # Calculate entry price and TP/SL levels
             ticker = self.bybit_client.get_tickers(
-                category="linear",
+                category="spot",
                 symbol=self.symbol
             )
             current_price = float(ticker['result']['list'][0]['lastPrice'])
@@ -218,35 +218,33 @@ class TradingBot:
                 stop_loss = round(current_price * (1 - self.stop_loss_pct/100), 1)
             else:  # short position
                 # For short, take profit should be lower than current price
-                take_profit = round(current_price * 0.5, 1)  # Set take profit at 50% of current price
+                take_profit = round(current_price * (1 - self.take_profit_pct/100), 1)  
                 stop_loss = round(current_price * (1 + self.stop_loss_pct/100), 1)
-
-            print("eeeeeeeeeeeeeeeee")
+           
             print("take_profit:", take_profit)
             print("stop_loss:", stop_loss)
             if direction == "long":
-                _side = "Buy"     
+                _side = "Buy" 
+                balance = math.floor(quantity * current_price * 1e7) / 1e7
+                initial_position = balance
             else:
                 _side = "Sell"
-
-            quantity = math.floor(quantity * 1e3) / 1e3
+                balance = math.floor(quantity * 1e6) / 1e6
+                initial_position = balance * current_price
+            # quantity = math.floor(quantity * 1e3) / 1e3
             print("quantity:", quantity)
             
             # Place the order
             order = self.bybit_client.place_order(
-                category="linear",
+                category="spot",
                 symbol=self.symbol,
                 side=_side,
                 orderType="Market",
-                qty=quantity,
-                price=current_price,
-                takeProfit=take_profit,
-                stopLoss=stop_loss
+                qty=str(balance)
+                # marketUnit = "baseCoin"    # Convert to string to ensure proper formatting
             )
-            logging.info(f"Order placed successfully: {order}") 
+            logging.info(f"Order placed successfully: {order}")           
             
-            # Calculate initial position value
-            initial_position = quantity*current_price
             
             # Log and notify
             order_info = {
@@ -256,22 +254,26 @@ class TradingBot:
                 "quantity": quantity,
                 "take_profit": take_profit,
                 "stop_loss": stop_loss,
-                "initial_position": initial_position
+                "initial_position": initial_position,
+                "opening_time": datetime.now(UTC)  # Store the opening time in UTC
             }
             self.trade_history.append(order_info)
             self.current_position = order_info
             
             # Format message according to the new template
-            message = (f"Trade Order Executed\n\n"
-                      f"Model: PPO\n"
+            opening_time = order_info["opening_time"].strftime("%d-%b-%y %H:%MUTC")
+            message = (f"Positioned Opened\n\n"
+                      f"Model: Gamma PPO\n"
                       f"Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\n"
-                      f"Pair: {self.symbol}\n"
+                      f"Timeframe: {self.timeframe}\n"
+                      f"Opening Time: {opening_time}\n"
                       f"Leverage: {self.leverage}x\n"
-                      f"Initial Position: ${initial_position:.2f}\n\n"
-                      f"Trade Breakdown:\n\n"
-                      f"• Entry: ${current_price:.1f}\n"
-                      f"• TP: ${take_profit:.1f}\n"
-                      f"• SL: ${stop_loss:.1f}\n")
+                      f"Entry Price: ${current_price:.1f}\n"
+                      f"Position Size: ${initial_position:.2f}\n"
+                      f"Stop Loss: ${stop_loss:.1f}\n"
+                      f"Take Profit: ${take_profit:.1f}\n"                      
+                      )
+            await self.send_telegram_message(message)       
             logging.info(message)          
             
 
@@ -294,7 +296,7 @@ class TradingBot:
                 print("checking trade status")
                 # Get current price
                 ticker = self.bybit_client.get_tickers(
-                    category="linear",
+                    category="spot",
                     symbol=self.symbol
                 )
                 current_price = float(ticker['result']['list'][0]['lastPrice'])
@@ -317,7 +319,7 @@ class TradingBot:
                 logging.info("Waiting 5 minutes before next check")
                 print("waiting 5 minutes before next check")
                 # Wait before checking again
-                await asyncio.sleep(300)  # Check every 300 seconds
+                await asyncio.sleep(300)  # Check every 5 seconds
                 
             except Exception as e:
                 logging.error(f"Error monitoring trade: {e}")
@@ -337,6 +339,18 @@ class TradingBot:
                 trade['profit'] = 0  # If trade is still open
                 
         df = pd.DataFrame(self.trade_history)
+        
+        # Convert timestamp to datetime if it's a string
+        if 'timestamp' in df.columns:
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            # Get current week's start (Monday) and end (Sunday)
+            current_date = datetime.now()
+            week_start = current_date - timedelta(days=current_date.weekday())
+            week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+            week_end = week_start + timedelta(days=6, hours=23, minutes=59, seconds=59)
+            
+            # Filter trades for current week
+            df = df[(df['timestamp'] >= week_start) & (df['timestamp'] <= week_end)]
         
         # Only consider completed trades (those with profit calculated)
         completed_trades = df[df['profit'] != 0]
@@ -406,43 +420,72 @@ class TradingBot:
         # Clear current position after closure
         self.current_position = None
 
-    def close_all_positions(self):
-        """Close all open positions"""
+    async def close_position(self):
+        """Close open position"""
         try:
-            # Get all open positions
-            positions = self.bybit_client.get_positions(
-                category="linear",
+            # Get current position details
+            if not self.current_position:
+                logging.info("No open position to close")
+                return
+
+            # Get current price
+            ticker = self.bybit_client.get_tickers(
+                category="spot",
                 symbol=self.symbol
             )
+            current_price = float(ticker['result']['list'][0]['lastPrice'])
+
+            # Calculate quantity to close
+            direction = self.current_position["direction"]
+            quantity = self.current_position["quantity"]  
+
+            account_info = self.bybit_client.get_wallet_balance(
+                accountType="UNIFIED"
+            )
             
-            if positions and 'result' in positions and 'list' in positions['result']:
-                for position in positions['result']['list']:
-                    if float(position['size']) > 0:  # If there's an open position
-                        side = "Sell" if position['side'] == "Buy" else "Buy"  # Opposite side to close
-                        quantity = float(position['size'])
-                        
-                        # Place closing order
-                        order = self.bybit_client.place_order(
-                            category="linear",
-                            symbol=self.symbol,
-                            side=side,
-                            orderType="Market",
-                            qty=quantity,
-                            reduceOnly=True  # This ensures it only closes positions
-                        )
-                        
-                        message = f"Closed position:\nSide: {position['side']}\nSize: {quantity}\nEntry Price: {position['avgPrice']}"
-                        logging.info(f"Closed position: {message}")
+            # Find BTC balance
+            btc_balance = 0
+            if account_info and 'result' in account_info and 'list' in account_info['result']:
+                for coin in account_info['result']['list'][0]['coin']:
+                    if coin['coin'] == 'BTC':
+                        btc_balance = float(coin['walletBalance'])
+                        break
+            if account_info and 'result' in account_info and 'list' in account_info['result']:
+                for coin in account_info['result']['list'][0]['coin']:
+                    if coin['coin'] == 'USDT':
+                        usdt_balance = float(coin['walletBalance'])
+                        break          
             
-            message = "All positions have been closed"
-            logging.info(message)
-            return
+
+            if direction == "long":
+                _side = "Sell" 
+                balance = math.floor(btc_balance * 1e6) / 1e6                
+            else:
+                _side = "Buy"                
+                balance = math.floor(usdt_balance * 1e7) / 1e7
+            
+            # Place the closing order
+            order = self.bybit_client.place_order(
+                category="spot",
+                symbol=self.symbol,
+                side=_side,
+                orderType="Market",
+                qty=str(balance)
+                # marketUnit = "baseCoin"    # Convert to string to ensure proper formatting
+            )
+            
+            logging.info(f"Closing order placed: {order}")
+            
+            # Notify about position closure
+            await self.notify_trade_closure(current_price, "TP/SL Not reached")
+            
+            # Clear current position
+            self.current_position = None
             
         except Exception as e:
-            error_msg = f"Error closing positions: {str(e)}"
+            error_msg = f"Error closing position: {str(e)}"
             logging.error(error_msg)
-            return
-        
+            await self.send_telegram_message(f"Error closing position: {str(e)}")
 
     async def run(self):
         """Main trading loop"""
@@ -466,8 +509,8 @@ class TradingBot:
                         # if (current_time.minute % 3 == 0):
                             report = self.generate_weekly_report()
                             await self.send_telegram_message(report)                                                
-                            continue 
-                        
+                            continue  
+                    
                     # Get historical data
                     df = self.get_historical_data()
                     if df is not None:
@@ -486,18 +529,23 @@ class TradingBot:
                         logging.info(f"account_info: {account_info}")
 
                         ticker = self.bybit_client.get_tickers(
-                            category="linear",
+                            category="spot",
                             symbol=self.symbol
                         )
                         current_price = float(ticker['result']['list'][0]['lastPrice'])
-                        
+
+                        instrument_info = self.bybit_client.get_instruments_info(
+                            category="spot", 
+                            symbol=self.symbol
+                        )
+                        lot_size_filter = instrument_info['result']['list'][0]['lotSizeFilter']
+                        MIN_USDT_QTY = float(lot_size_filter['minOrderAmt'])
+                        MAX_USDT_QTY = float(lot_size_filter['maxOrderAmt'])
+                        MIN_BTC_QTY = float(lot_size_filter['minOrderQty'])
+                        MAX_BTC_QTY = float(lot_size_filter['maxOrderQty'])
                         # Initialize balances
                         btc_balance = 0
                         usdt_balance = 0
-                        MIN_USDT_QTY = 1  # Minimum BTC order quantity
-                        MAX_USDT_QTY = 8000000     # Maximum BTC order quantity
-                        MIN_BTC_QTY = round(MIN_USDT_QTY/current_price * 1e6) / 1e6
-                        MAX_BTC_QTY = math.floor(MAX_USDT_QTY/current_price * 1e6) / 1e6
                         
                         if account_info and 'result' in account_info and 'list' in account_info['result']:
                             if direction == "long":
@@ -511,7 +559,7 @@ class TradingBot:
                                     message = f"Predicted Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\nInsufficient USDT balance.\nHave: {usdt_balance}\nNeed minimum: {MIN_USDT_QTY}"
                                     logging.error(message)
                                     await self.send_telegram_message(message)
-                                    await asyncio.sleep(86395)  
+                                    await asyncio.sleep(86390)  # Wait until near the next minute
                                     continue
                                     
                                 balance = usdt_balance/current_price
@@ -528,20 +576,20 @@ class TradingBot:
                                     message = f"Predicted Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\nInsufficient BTC balance.\nHave: {btc_balance}\nNeed minimum: {MIN_BTC_QTY}"
                                     logging.error(message)
                                     await self.send_telegram_message(message)
-                                    await asyncio.sleep(86395)  
+                                    await asyncio.sleep(86390)  # Wait until near the next minute
                                     continue
                                     
                                 balance = min(btc_balance, MAX_BTC_QTY)
                                 balance = math.floor(balance * 1e5) / 1e5
                             
                             # Place the trade
-                            self.place_order(direction, balance)
+                            await self.place_order(direction, balance)
                             
                             # Wait for 1 minute
-                            await asyncio.sleep(86395) 
+                            await asyncio.sleep(86390)  # Sleep for 55 seconds (accounting for processing time)
                             
                             # Close all positions
-                            self.close_all_positions()
+                            await self.close_position()
                             
                             # Small delay before next iteration
                             await asyncio.sleep(1)
@@ -551,6 +599,5 @@ class TradingBot:
             return  # Exit on error
 
 if __name__ == "__main__":
-    bot = TradingBot()
-    bot.close_all_positions()
+    bot = TradingBot()    
     asyncio.run(bot.run())
