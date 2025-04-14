@@ -567,83 +567,83 @@ class TradingBot:
                             await self.send_telegram_message(report)                                                
                             continue 
                     
-                # Get historical data
-                df = self.get_historical_data()
-                if df is not None:
-                    # Prepare model input
-                    model_input = self.prepare_model_input(df)
-                    
-                    # Get prediction
-                    prediction = self.model.predict(model_input)
-                    direction = "long" if prediction[0] > 0 else "short"
-                    
-                    # Get account balance and calculate position size
-                    account_info = self.bybit_client.get_wallet_balance(
-                        accountType="UNIFIED"
-                    )
-                    print("account_info:", account_info)
-                    logging.info(f"account_info: {account_info}")
+                    # Get historical data
+                    df = self.get_historical_data()
+                    if df is not None:
+                        # Prepare model input
+                        model_input = self.prepare_model_input(df)
+                        
+                        # Get prediction
+                        prediction = self.model.predict(model_input)
+                        direction = "long" if prediction[0] > 0 else "short"
+                        
+                        # Get account balance and calculate position size
+                        account_info = self.bybit_client.get_wallet_balance(
+                            accountType="UNIFIED"
+                        )
+                        print("account_info:", account_info)
+                        logging.info(f"account_info: {account_info}")
 
-                    ticker = self.bybit_client.get_tickers(
-                        category="linear",
-                        symbol=self.symbol
-                    )
-                    current_price = float(ticker['result']['list'][0]['lastPrice'])
-                    
-                    # Initialize balances
-                    btc_balance = 0
-                    usdt_balance = 0
-                    MIN_BTC_QTY = self.MIN_BTC_QTY
-                    MAX_BTC_QTY = self.MAX_BTC_QTY
-                    MIN_USDT_QTY = self.MIN_USDT_QTY
-                    MAX_USDT_QTY = self.MAX_USDT_QTY
-                    
-                    if account_info and 'result' in account_info and 'list' in account_info['result']:
-                        if direction == "long":
-                            wallet_info = next((coin for coin in account_info['result']['list'][0]['coin'] if coin['coin'] == 'USDT'), None)
-                            if wallet_info:
-                                usdt_balance = float(wallet_info['walletBalance'])
+                        ticker = self.bybit_client.get_tickers(
+                            category="linear",
+                            symbol=self.symbol
+                        )
+                        current_price = float(ticker['result']['list'][0]['lastPrice'])
+                        
+                        # Initialize balances
+                        btc_balance = 0
+                        usdt_balance = 0
+                        MIN_BTC_QTY = self.MIN_BTC_QTY
+                        MAX_BTC_QTY = self.MAX_BTC_QTY
+                        MIN_USDT_QTY = self.MIN_USDT_QTY
+                        MAX_USDT_QTY = self.MAX_USDT_QTY
+                        
+                        if account_info and 'result' in account_info and 'list' in account_info['result']:
+                            if direction == "long":
+                                wallet_info = next((coin for coin in account_info['result']['list'][0]['coin'] if coin['coin'] == 'USDT'), None)
+                                if wallet_info:
+                                    usdt_balance = float(wallet_info['walletBalance'])
+                                else:
+                                    usdt_balance = 0
+
+                                if usdt_balance < MIN_USDT_QTY:
+                                    message = f"Predicted Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\nInsufficient USDT balance.\nHave: {usdt_balance}\nNeed minimum: {MIN_USDT_QTY}"
+                                    logging.error(message)
+                                    await self.send_telegram_message(message)
+                                    await asyncio.sleep(86390)  # Wait until near the next minute
+                                    continue
+                                    
+                                balance = usdt_balance/current_price
+                                balance = min(balance, MAX_BTC_QTY)
+                                balance = math.floor(balance * 1e5) / 1e5
                             else:
-                                usdt_balance = 0
-
-                            if usdt_balance < MIN_USDT_QTY:
-                                message = f"Predicted Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\nInsufficient USDT balance.\nHave: {usdt_balance}\nNeed minimum: {MIN_USDT_QTY}"
-                                logging.error(message)
-                                await self.send_telegram_message(message)
-                                await asyncio.sleep(86390)  # Wait until near the next minute
-                                continue
+                                wallet_info = next((coin for coin in account_info['result']['list'][0]['coin'] if coin['coin'] == 'BTC'), None)
+                                if wallet_info:
+                                    btc_balance = float(wallet_info['walletBalance'])
+                                else:
+                                    btc_balance = 0
                                 
-                            balance = usdt_balance/current_price
-                            balance = min(balance, MAX_BTC_QTY)
-                            balance = math.floor(balance * 1e5) / 1e5
-                        else:
-                            wallet_info = next((coin for coin in account_info['result']['list'][0]['coin'] if coin['coin'] == 'BTC'), None)
-                            if wallet_info:
-                                btc_balance = float(wallet_info['walletBalance'])
-                            else:
-                                btc_balance = 0
+                                if btc_balance < MIN_BTC_QTY:
+                                    message = f"Predicted Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\nInsufficient BTC balance.\nHave: {btc_balance}\nNeed minimum: {MIN_BTC_QTY}"
+                                    logging.error(message)
+                                    await self.send_telegram_message(message)
+                                    await asyncio.sleep(86390)  # Wait until near the next minute
+                                    continue
+                                    
+                                balance = min(btc_balance, MAX_BTC_QTY)
+                                balance = math.floor(balance * 1e5) / 1e5
                             
-                            if btc_balance < MIN_BTC_QTY:
-                                message = f"Predicted Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\nInsufficient BTC balance.\nHave: {btc_balance}\nNeed minimum: {MIN_BTC_QTY}"
-                                logging.error(message)
-                                await self.send_telegram_message(message)
-                                await asyncio.sleep(86390)  # Wait until near the next minute
-                                continue
-                                
-                            balance = min(btc_balance, MAX_BTC_QTY)
-                            balance = math.floor(balance * 1e5) / 1e5
-                        
-                        # Place the trade
-                        await self.place_order(direction, balance)
-                        
-                        # Wait for 1 minute
-                        await asyncio.sleep(86390)  
-                        
-                        # Close all positions
-                        await self.close_all_positions(current_price)
-                        
-                        # Small delay before next iteration
-                        await asyncio.sleep(1)
+                            # Place the trade
+                            await self.place_order(direction, balance)
+                            
+                            # Wait for 1 minute
+                            await asyncio.sleep(86390)  
+                            
+                            # Close all positions
+                            await self.close_all_positions(current_price)
+                            
+                            # Small delay before next iteration
+                            await asyncio.sleep(1)
                 
         except Exception as e:
             logging.error(f"Error in main loop: {e}")
