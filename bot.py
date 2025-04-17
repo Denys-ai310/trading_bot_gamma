@@ -547,14 +547,14 @@ class TradingBot:
             self.MIN_USDT_QTY = float(lot_size_filter['minNotionalValue'])
             self.MAX_USDT_QTY = 8000000  # Maximum BTC order quantity
 
-            # Send welcome message when bot starts
-            welcome_message = (
-                "Good day everyone, we have now paused the TA trade\n"
-                "notification and will be going live with the Gamma model which\n"
-                "will be opening a trade on either a long or short position every\n"
-                "24hr at 00:00UTC"
-            )
-            await self.send_telegram_message(welcome_message)
+            # # Send welcome message when bot starts
+            # welcome_message = (
+            #     "Good day everyone, we have now paused the TA trade\n"
+            #     "notification and will be going live with the Gamma model which\n"
+            #     "will be opening a trade on either a long or short position every\n"
+            #     "24hr at 00:00UTC"
+            # )
+            # await self.send_telegram_message(welcome_message)
 
             while True:
                 current_time = datetime.now(UTC)
@@ -632,18 +632,20 @@ class TradingBot:
                                     
                                 balance = min(btc_balance, MAX_BTC_QTY)
                                 balance = math.floor(balance * 1e5) / 1e5
-                            
-                            # Place the trade
-                            await self.place_order(direction, balance)
-                            
-                            # Wait for 1 minute
-                            await asyncio.sleep(86390)  
-                            
-                            # Close all positions
-                            await self.close_all_positions(current_price)
-                            
-                            # Small delay before next iteration
-                            await asyncio.sleep(1)
+
+                            # Only place the order if we have sufficient balance
+                            if (direction == "long" and usdt_balance >= MIN_USDT_QTY) or (direction == "short" and btc_balance >= MIN_BTC_QTY):
+                                # Place the trade
+                                await self.place_order(direction, balance)
+                                
+                                # Wait for 1 minute
+                                await asyncio.sleep(86390)  
+                                
+                                # Close all positions
+                                await self.close_all_positions(current_price)
+                                
+                                # Small delay before next iteration
+                                await asyncio.sleep(1)
                 
         except Exception as e:
             logging.error(f"Error in main loop: {e}")
