@@ -560,13 +560,7 @@ class TradingBot:
                 current_time = datetime.now(UTC)
                 if current_time.hour == 0 and current_time.minute == 0:
                 
-                    if self.trade_history:
-                        if current_time.weekday() == 6:
-                            
-                            report = self.generate_weekly_report()
-                            await self.send_telegram_message(report)                                                
-                            continue 
-                    
+                                         
                     # Get historical data
                     df = self.get_historical_data()
                     if df is not None:
@@ -646,9 +640,17 @@ class TradingBot:
                                 
                                 # Small delay before next iteration
                                 await asyncio.sleep(1)
-                
+                        
+                        await asyncio.sleep(1)
+                    
+                    if self.trade_history:
+                        if current_time.weekday() == 6:
+                            
+                            report = self.generate_weekly_report()
+                            await self.send_telegram_message(report)                                                
+                            continue
                 # Small sleep to prevent excessive CPU usage
-                await asyncio.sleep(1)
+                
                 
         except Exception as e:
             logging.error(f"Error in main loop: {e}")
