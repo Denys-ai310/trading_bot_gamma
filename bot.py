@@ -226,10 +226,7 @@ class TradingBot:
             if direction == "long":
                 _side = "Buy"     
             else:
-                _side = "Sell"
-
-            quantity = math.floor(quantity * 1e3) / 1e3
-            print("quantity:", quantity)
+                _side = "Sell"            
             
             # Place the order
             order = self.bybit_client.place_order(
@@ -543,10 +540,7 @@ class TradingBot:
             # Set trading parameters based on instrument info
             lot_size_filter = instrument_info['lotSizeFilter']
             self.MIN_BTC_QTY = float(lot_size_filter['minOrderQty'])
-            self.MAX_BTC_QTY = float(lot_size_filter['maxOrderQty'])
-            self.MIN_USDT_QTY = float(lot_size_filter['minNotionalValue'])
-            self.MAX_USDT_QTY = 8000000  # Maximum BTC order quantity
-
+            self.MAX_BTC_QTY = float(lot_size_filter['maxMktOrderQty'])
             # # Send welcome message when bot starts
             # welcome_message = (
             #     "Good day everyone, we have now paused the TA trade\n"
@@ -589,46 +583,30 @@ class TradingBot:
                         usdt_balance = 0
                         MIN_BTC_QTY = self.MIN_BTC_QTY
                         MAX_BTC_QTY = self.MAX_BTC_QTY
-                        MIN_USDT_QTY = self.MIN_USDT_QTY
-                        MAX_USDT_QTY = self.MAX_USDT_QTY
                         
                         if account_info and 'result' in account_info and 'list' in account_info['result']:
-                            if direction == "long":
-                                wallet_info = next((coin for coin in account_info['result']['list'][0]['coin'] if coin['coin'] == 'USDT'), None)
-                                if wallet_info:
-                                    usdt_balance = float(wallet_info['walletBalance'])
-                                else:
-                                    usdt_balance = 0
-
-                                if usdt_balance < MIN_USDT_QTY:
-                                    message = f"Predicted Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\nInsufficient USDT balance.\nHave: {usdt_balance}\nNeed minimum: {MIN_USDT_QTY}"
-                                    logging.error(message)
-                                    await self.send_telegram_message(message)
-                                    await asyncio.sleep(86390)  # Wait until near the next minute
-                                    continue
-                                    
-                                balance = usdt_balance/current_price
-                                balance = min(balance, MAX_BTC_QTY)
-                                balance = math.floor(balance * 1e5) / 1e5
-                            else:
-                                wallet_info = next((coin for coin in account_info['result']['list'][0]['coin'] if coin['coin'] == 'BTC'), None)
-                                if wallet_info:
-                                    btc_balance = float(wallet_info['walletBalance'])
-                                else:
-                                    btc_balance = 0
+                            # Get USDT equity for trading
+                            usdt_info = next((coin for coin in account_info['result']['list'][0]['coin'] 
+                                            if coin['coin'] == 'USDT'), None)
+                            
+                            if usdt_info:
+                                usdt_equity = float(usdt_info['equity'])  # Use equity instead of walletBalance
                                 
-                                if btc_balance < MIN_BTC_QTY:
-                                    message = f"Predicted Direction: {'Long 📈' if direction == 'long' else 'Short 📉'}\nInsufficient BTC balance.\nHave: {btc_balance}\nNeed minimum: {MIN_BTC_QTY}"
-                                    logging.error(message)
-                                    await self.send_telegram_message(message)
-                                    await asyncio.sleep(86390)  # Wait until near the next minute
-                                    continue
-                                    
-                                balance = min(btc_balance, MAX_BTC_QTY)
-                                balance = math.floor(balance * 1e5) / 1e5
+                                # Calculate maximum position size in BTC
+                                max_position_in_btc = (usdt_equity / current_price) * self.leverage
+                                
+                                # Ensure within limits (from your instrument info)
+                                max_market_qty = MAX_BTC_QTY # from maxMktOrderQty
+                                min_qty = MIN_BTC_QTY          # from minOrderQty
+                                
+                                # Calculate final position size
+                                balance = min(max_position_in_btc, max_market_qty)
+                                balance = math.floor(balance * 1e3) / 1e3  # Round to 3 decimal places
+                                
+                                # Ensure minimum size
+                                if balance < min_qty:
+                                    balance = 0  # Or handle minimum size error
 
-                            # Only place the order if we have sufficient balance
-                            if (direction == "long" and usdt_balance >= MIN_USDT_QTY) or (direction == "short" and btc_balance >= MIN_BTC_QTY):
                                 # Place the trade
                                 await self.place_order(direction, balance)
                                 
@@ -658,5 +636,5 @@ class TradingBot:
 
 if __name__ == "__main__":
     bot = TradingBot()
-    # asyncio.run(bot.close_all_positions(0))
+    asyncio.run(bot.close_all_positions(0))
     asyncio.run(bot.run())
