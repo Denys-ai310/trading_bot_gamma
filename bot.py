@@ -647,6 +647,9 @@ class TradingBot:
                                 # Small delay before next iteration
                                 await asyncio.sleep(1)
                 
+                # Small sleep to prevent excessive CPU usage
+                await asyncio.sleep(1)
+                
         except Exception as e:
             logging.error(f"Error in main loop: {e}")
             return  # Exit on error
