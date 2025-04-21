@@ -40,7 +40,7 @@ class TradingBot:
         self.api_secret = "KxuD5pVBCJW9aMLCX3Vd5uY3Hm2MEZvMuUP6"
         
         # Telegram credentials
-        self.telegram_token = "7382067227:AAGniEN3og9wt8B49RT3LbQ8E31up8tYYqs"
+        self.telegram_token = "7935095001:AAHCrTwT5fSsqeC69VbiFh0O6S1Czfr3MFw"
         self.telegram_chat_id = "-1002433151362"
         self.telegram_thread_id = 110  # Default thread ID
         
@@ -218,7 +218,7 @@ class TradingBot:
                 stop_loss = round(current_price * (1 - self.stop_loss_pct/100), 1)
             else:  # short position
                 # For short, take profit should be lower than current price
-                take_profit = round(current_price * (1 - self.take_profit_pct/100), 1)  # Set take profit at 50% of current price
+                take_profit = round(current_price * (1 - self.take_profit_pct/100), 1)  # Set take profit at 100% of current price
                 stop_loss = round(current_price * (1 + self.stop_loss_pct/100), 1)
 
             print("take_profit:", take_profit)
@@ -551,83 +551,90 @@ class TradingBot:
             # await self.send_telegram_message(welcome_message)
 
             while True:
-                current_time = datetime.now(UTC)
-                if current_time.hour == 0 and current_time.minute == 0:
+                current_time = datetime.now(UTC)\
+                
+                if current_time.hour != 0:
+                    await asyncio.sleep(1)
+                    continue                
+                if current_time.minute != 0:
+                    await asyncio.sleep(1)
+                    continue
+                if current_time.second != 0:
+                    await asyncio.sleep(1)
+                    continue
                 
                                          
-                    # Get historical data
-                    df = self.get_historical_data()
-                    if df is not None:
-                        # Prepare model input
-                        model_input = self.prepare_model_input(df)
-                        
-                        # Get prediction
-                        prediction = self.model.predict(model_input)
-                        direction = "long" if prediction[0] > 0 else "short"
-                        
-                        # Get account balance and calculate position size
-                        account_info = self.bybit_client.get_wallet_balance(
-                            accountType="UNIFIED"
-                        )
-                        print("account_info:", account_info)
-                        logging.info(f"account_info: {account_info}")
-
-                        ticker = self.bybit_client.get_tickers(
-                            category="linear",
-                            symbol=self.symbol
-                        )
-                        current_price = float(ticker['result']['list'][0]['lastPrice'])
-                        
-                        # Initialize balances
-                        btc_balance = 0
-                        usdt_balance = 0
-                        MIN_BTC_QTY = self.MIN_BTC_QTY
-                        MAX_BTC_QTY = self.MAX_BTC_QTY
-                        
-                        if account_info and 'result' in account_info and 'list' in account_info['result']:
-                            # Get USDT equity for trading
-                            usdt_info = next((coin for coin in account_info['result']['list'][0]['coin'] 
-                                            if coin['coin'] == 'USDT'), None)
-                            
-                            if usdt_info:
-                                usdt_equity = float(usdt_info['equity'])  # Use equity instead of walletBalance
-                                
-                                # Calculate maximum position size in BTC
-                                max_position_in_btc = (usdt_equity / current_price) * self.leverage
-                                
-                                # Ensure within limits (from your instrument info)
-                                max_market_qty = MAX_BTC_QTY # from maxMktOrderQty
-                                min_qty = MIN_BTC_QTY          # from minOrderQty
-                                
-                                # Calculate final position size
-                                balance = min(max_position_in_btc, max_market_qty)
-                                balance = math.floor(balance * 1e3) / 1e3  # Round to 3 decimal places
-                                
-                                # Ensure minimum size
-                                if balance < min_qty:
-                                    balance = 0  # Or handle minimum size error
-
-                                # Place the trade
-                                await self.place_order(direction, balance)
-                                
-                                # Wait for 1 minute
-                                await asyncio.sleep(86390)  
-                                
-                                # Close all positions
-                                await self.close_all_positions(current_price)
-                                
-                                # Small delay before next iteration
-                                await asyncio.sleep(1)
-                        
-                        await asyncio.sleep(1)
+                # Get historical data
+                df = self.get_historical_data()
+                if df is not None:
+                    # Prepare model input
+                    model_input = self.prepare_model_input(df)
                     
-                    if self.trade_history:
-                        if current_time.weekday() == 6:
+                    # Get prediction
+                    prediction = self.model.predict(model_input)
+                    direction = "long" if prediction[0] > 0 else "short"
+                    
+                    # Get account balance and calculate position size
+                    account_info = self.bybit_client.get_wallet_balance(
+                        accountType="UNIFIED"
+                    )
+                    print("account_info:", account_info)
+                    logging.info(f"account_info: {account_info}")
+
+                    ticker = self.bybit_client.get_tickers(
+                        category="linear",
+                        symbol=self.symbol
+                    )
+                    current_price = float(ticker['result']['list'][0]['lastPrice'])
+                    
+                    # Initialize balances
+                    MIN_BTC_QTY = self.MIN_BTC_QTY
+                    MAX_BTC_QTY = self.MAX_BTC_QTY
+                    
+                    if account_info and 'result' in account_info and 'list' in account_info['result']:
+                        # Get USDT equity for trading
+                        usdt_info = next((coin for coin in account_info['result']['list'][0]['coin'] 
+                                        if coin['coin'] == 'USDT'), None)
+                        
+                        if usdt_info:
+                            usdt_equity = float(usdt_info['equity'])  # Use equity instead of walletBalance
                             
-                            report = self.generate_weekly_report()
-                            await self.send_telegram_message(report)                                                
-                            continue
-                # Small sleep to prevent excessive CPU usage
+                            # Calculate maximum position size in BTC
+                            max_position_in_btc = (usdt_equity / current_price) * self.leverage
+                            
+                            # Ensure within limits (from your instrument info)
+                            max_market_qty = MAX_BTC_QTY # from maxMktOrderQty
+                            min_qty = MIN_BTC_QTY          # from minOrderQty
+                            
+                            # Calculate final position size
+                            balance = min(max_position_in_btc, max_market_qty)
+                            balance = math.floor(balance * 1e3) / 1e3  # Round to 3 decimal places
+                            
+                            # Ensure minimum size
+                            if balance < min_qty:
+                                balance = 0  # Or handle minimum size error
+
+                            # Place the trade
+                            await self.place_order(direction, balance)
+                            
+                            # Wait for 1 minute
+                            await asyncio.sleep(86390)  
+                            
+                            # Close all positions
+                            await self.close_all_positions(current_price)
+                            
+                            # Small delay before next iteration
+                            await asyncio.sleep(1)
+                    
+                    await asyncio.sleep(1)
+                
+                if self.trade_history:
+                    if current_time.weekday() == 6:
+                        
+                        report = self.generate_weekly_report()
+                        await self.send_telegram_message(report)                                                
+                        continue
+                
                 
                 
         except Exception as e:
