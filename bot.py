@@ -541,101 +541,91 @@ class TradingBot:
             lot_size_filter = instrument_info['lotSizeFilter']
             self.MIN_BTC_QTY = float(lot_size_filter['minOrderQty'])
             self.MAX_BTC_QTY = float(lot_size_filter['maxMktOrderQty'])
-            # # Send welcome message when bot starts
-            # welcome_message = (
-            #     "Good day everyone, we have now paused the TA trade\n"
-            #     "notification and will be going live with the Gamma model which\n"
-            #     "will be opening a trade on either a long or short position every\n"
-            #     "24hr at 00:00UTC"
-            # )
-            # await self.send_telegram_message(welcome_message)
+
+            # Track last trade date
+            last_trade_date = None
 
             while True:
-                current_time = datetime.now(UTC)\
+                current_time = datetime.now(UTC)
+                current_date = current_time.date()
                 
-                if current_time.hour != 0:
-                    await asyncio.sleep(1)
-                    continue                
-                if current_time.minute != 0:
-                    await asyncio.sleep(1)
-                    continue
-                if current_time.second != 0:
-                    await asyncio.sleep(1)
-                    continue
-                
-                                         
-                # Get historical data
-                df = self.get_historical_data()
-                if df is not None:
-                    # Prepare model input
-                    model_input = self.prepare_model_input(df)
+                # Only proceed if it's a new day and we haven't traded yet
+                if (current_time.hour == 0 and current_time.minute == 0 and 
+                    (last_trade_date is None or current_date > last_trade_date)):
                     
-                    # Get prediction
-                    prediction = self.model.predict(model_input)
-                    direction = "long" if prediction[0] > 0 else "short"
-                    
-                    # Get account balance and calculate position size
-                    account_info = self.bybit_client.get_wallet_balance(
-                        accountType="UNIFIED"
-                    )
-                    print("account_info:", account_info)
-                    logging.info(f"account_info: {account_info}")
-
-                    ticker = self.bybit_client.get_tickers(
-                        category="linear",
-                        symbol=self.symbol
-                    )
-                    current_price = float(ticker['result']['list'][0]['lastPrice'])
-                    
-                    # Initialize balances
-                    MIN_BTC_QTY = self.MIN_BTC_QTY
-                    MAX_BTC_QTY = self.MAX_BTC_QTY
-                    
-                    if account_info and 'result' in account_info and 'list' in account_info['result']:
-                        # Get USDT equity for trading
-                        usdt_info = next((coin for coin in account_info['result']['list'][0]['coin'] 
-                                        if coin['coin'] == 'USDT'), None)
+                    # Get historical data
+                    df = self.get_historical_data()
+                    if df is not None:
+                        # Prepare model input
+                        model_input = self.prepare_model_input(df)
                         
-                        if usdt_info:
-                            usdt_equity = float(usdt_info['equity'])  # Use equity instead of walletBalance
-                            
-                            # Calculate maximum position size in BTC
-                            max_position_in_btc = (usdt_equity / current_price) * self.leverage
-                            
-                            # Ensure within limits (from your instrument info)
-                            max_market_qty = MAX_BTC_QTY # from maxMktOrderQty
-                            min_qty = MIN_BTC_QTY          # from minOrderQty
-                            
-                            # Calculate final position size
-                            balance = min(max_position_in_btc, max_market_qty)
-                            balance = math.floor(balance * 1e3) / 1e3  # Round to 3 decimal places
-                            
-                            # Ensure minimum size
-                            if balance < min_qty:
-                                balance = 0  # Or handle minimum size error
+                        # Get prediction
+                        prediction = self.model.predict(model_input)
+                        direction = "long" if prediction[0] > 0 else "short"
+                        
+                        # Get account balance and calculate position size
+                        account_info = self.bybit_client.get_wallet_balance(
+                            accountType="UNIFIED"
+                        )
+                        print("account_info:", account_info)
+                        logging.info(f"account_info: {account_info}")
 
-                            # Place the trade
-                            await self.place_order(direction, balance)
+                        ticker = self.bybit_client.get_tickers(
+                            category="linear",
+                            symbol=self.symbol
+                        )
+                        current_price = float(ticker['result']['list'][0]['lastPrice'])
+                        
+                        # Initialize balances
+                        MIN_BTC_QTY = self.MIN_BTC_QTY
+                        MAX_BTC_QTY = self.MAX_BTC_QTY
+                        
+                        if account_info and 'result' in account_info and 'list' in account_info['result']:
+                            # Get USDT equity for trading
+                            usdt_info = next((coin for coin in account_info['result']['list'][0]['coin'] 
+                                            if coin['coin'] == 'USDT'), None)
                             
-                            # Wait for 1 minute
-                            await asyncio.sleep(86390)  
-                            
-                            # Close all positions
-                            await self.close_all_positions(current_price)
-                            
-                            # Small delay before next iteration
-                            await asyncio.sleep(1)
-                    
-                    await asyncio.sleep(1)
+                            if usdt_info:
+                                usdt_equity = float(usdt_info['equity'])  # Use equity instead of walletBalance
+                                
+                                # Calculate maximum position size in BTC
+                                max_position_in_btc = (usdt_equity / current_price) * self.leverage
+                                
+                                # Ensure within limits (from your instrument info)
+                                max_market_qty = MAX_BTC_QTY # from maxMktOrderQty
+                                min_qty = MIN_BTC_QTY          # from minOrderQty
+                                
+                                # Calculate final position size
+                                balance = min(max_position_in_btc, max_market_qty)
+                                balance = math.floor(balance * 1e3) / 1e3  # Round to 3 decimal places
+                                
+                                # Ensure minimum size
+                                if balance < min_qty:
+                                    balance = 0  # Or handle minimum size error
+
+                                # Place the trade
+                                await self.place_order(direction, balance)
+                                
+                                # Update last trade date
+                                last_trade_date = current_date
+                                
+                                # Wait for 23 hours and 59 minutes before closing positions
+                                await asyncio.sleep(86340)  # 24 hours - 1 minute
+                                
+                                # Close all positions
+                                await self.close_all_positions(current_price)
+                                
+                                # Small delay before next iteration
+                                await asyncio.sleep(60)  # Wait 1 minute before starting next day's cycle
+                                continue
                 
                 if self.trade_history:
                     if current_time.weekday() == 6:
-                        
                         report = self.generate_weekly_report()
-                        await self.send_telegram_message(report)                                                
-                        continue
+                        await self.send_telegram_message(report)
                 
-                
+                # Sleep for 30 seconds before next check
+                await asyncio.sleep(30)
                 
         except Exception as e:
             logging.error(f"Error in main loop: {e}")
