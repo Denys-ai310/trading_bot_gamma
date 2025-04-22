@@ -218,7 +218,7 @@ class TradingBot:
                 stop_loss = round(current_price * (1 - self.stop_loss_pct/100), 1)
             else:  # short position
                 # For short, take profit should be lower than current price
-                take_profit = round(current_price * (1 - self.take_profit_pct/100), 1)  # Set take profit at 100% of current price
+                take_profit = round(current_price * (1 - self.take_profit_pct/100/2), 1)  # Set take profit at 100% of current price
                 stop_loss = round(current_price * (1 + self.stop_loss_pct/100), 1)
 
             print("take_profit:", take_profit)
