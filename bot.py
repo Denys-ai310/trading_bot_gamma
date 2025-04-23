@@ -633,5 +633,5 @@ class TradingBot:
 
 if __name__ == "__main__":
     bot = TradingBot()
-    asyncio.run(bot.close_all_positions(0))
+    # asyncio.run(bot.close_all_positions(0))
     asyncio.run(bot.run())
