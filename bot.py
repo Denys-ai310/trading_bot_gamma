@@ -40,7 +40,7 @@ class TradingBot:
         self.api_secret = "KxuD5pVBCJW9aMLCX3Vd5uY3Hm2MEZvMuUP6"
         
         # Telegram credentials
-        self.telegram_token = "7935095001:AAHCrTwT5fSsqeC69VbiFh0O6S1Czfr3MFw"
+        self.telegram_token = "7935095001:AAE7rkAXuk7c3exZ95pEvR0vGM4pkt114xI"
         self.telegram_chat_id = "-1002433151362"
         self.telegram_thread_id = 110  # Default thread ID
         
