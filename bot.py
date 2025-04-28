@@ -73,6 +73,7 @@ class TradingBot:
         # Initialize trade tracking
         self.current_position = None
         self.trade_history = []
+        self.last_trade_date = None
 
     async def send_telegram_message(self, message: str):
         """Send message to Telegram"""
@@ -202,7 +203,7 @@ class TradingBot:
             logging.error(f"Error preparing model input: {e}")
             return np.array([])  # Return empty array on error
 
-    async def place_order(self, direction: str, quantity: float):
+    async def place_order(self, direction: str, quantity: float, current_time: datetime):
         """Place order on Bybit"""
         try:
             logging.info("Starting place_order method")
@@ -241,6 +242,7 @@ class TradingBot:
             )
             logging.info(f"Order placed successfully: {order}") 
             
+            self.last_trade_date = current_time.date()
             # Calculate initial position value
             initial_position = quantity*current_price
             
@@ -542,16 +544,14 @@ class TradingBot:
             self.MIN_BTC_QTY = float(lot_size_filter['minOrderQty'])
             self.MAX_BTC_QTY = float(lot_size_filter['maxMktOrderQty'])
 
-            # Track last trade date
-            last_trade_date = None
-
+            
             while True:
                 current_time = datetime.now(UTC)
                 current_date = current_time.date()
                 
                 # Only proceed if it's a new day and we haven't traded yet
                 if (current_time.hour == 0 and current_time.minute == 0 and 
-                    (last_trade_date is None or current_date > last_trade_date)):
+                    (self.last_trade_date is None or current_date > self.last_trade_date)):
                     
                     # Get historical data
                     df = self.get_historical_data()
@@ -604,10 +604,8 @@ class TradingBot:
                                     balance = 0  # Or handle minimum size error
 
                                 # Place the trade
-                                await self.place_order(direction, balance)
+                                await self.place_order(direction, balance, current_time)                              
                                 
-                                # Update last trade date
-                                last_trade_date = current_date
                                 
                                 # Wait for 23 hours and 59 minutes before closing positions
                                 await asyncio.sleep(86340)  # 24 hours - 1 minute
@@ -633,5 +631,5 @@ class TradingBot:
 
 if __name__ == "__main__":
     bot = TradingBot()
-    # asyncio.run(bot.close_all_positions(0))
+    asyncio.run(bot.close_all_positions(0))
     asyncio.run(bot.run())
