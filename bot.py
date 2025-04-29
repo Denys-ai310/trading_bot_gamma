@@ -203,7 +203,7 @@ class TradingBot:
             logging.error(f"Error preparing model input: {e}")
             return np.array([])  # Return empty array on error
 
-    async def place_order(self, direction: str, quantity: float, current_time: datetime):
+    async def place_order(self, direction: str, quantity: float):
         """Place order on Bybit"""
         try:
             logging.info("Starting place_order method")
@@ -242,7 +242,7 @@ class TradingBot:
             )
             logging.info(f"Order placed successfully: {order}") 
             
-            self.last_trade_date = current_time.date()
+            
             # Calculate initial position value
             initial_position = quantity*current_price
             
@@ -604,9 +604,9 @@ class TradingBot:
                                 # Ensure minimum size
                                 if balance < min_qty:
                                     balance = 0  # Or handle minimum size error
-
+                                self.last_trade_date = current_date
                                 # Place the trade
-                                await self.place_order(direction, balance, current_time)                              
+                                await self.place_order(direction, balance)                              
                                 
                                 
                                 # Wait for 23 hours and 59 minutes before closing positions
