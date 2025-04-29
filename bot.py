@@ -548,6 +548,8 @@ class TradingBot:
             while True:
                 current_time = datetime.now(UTC)
                 current_date = current_time.date()
+                print(current_time.hour)
+                print(current_time.minute)
                 
                 # Only proceed if it's a new day and we haven't traded yet
                 if (current_time.hour == 0 and current_time.minute == 0 and 
