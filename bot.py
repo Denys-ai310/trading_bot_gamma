@@ -10,10 +10,6 @@ import os
 from typing import Dict, List, Tuple
 import asyncio
 import math
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 # Set environment variables before importing TensorFlow
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
