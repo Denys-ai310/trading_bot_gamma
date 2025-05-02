@@ -10,6 +10,10 @@ import os
 from typing import Dict, List, Tuple
 import asyncio
 import math
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Set environment variables before importing TensorFlow
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -35,14 +39,8 @@ UTC = timezone.utc
 
 class TradingBot:
     def __init__(self):
-        # Bybit API credentials
-        self.api_key = "oz6HRcOaFs1rb0TOEj"
-        self.api_secret = "KxuD5pVBCJW9aMLCX3Vd5uY3Hm2MEZvMuUP6"
-        
-        # Telegram credentials
-        self.telegram_token = "7935095001:AAE7rkAXuk7c3exZ95pEvR0vGM4pkt114xI"
-        self.telegram_chat_id = "-1002433151362"
-        self.telegram_thread_id = 110  # Default thread ID
+        # Load and validate environment variables
+        self._load_credentials()
         
         # Trading parameters
         self.symbol = "BTCUSDT"
@@ -74,6 +72,31 @@ class TradingBot:
         self.current_position = None
         self.trade_history = []
         self.last_trade_date = None
+
+    def _load_credentials(self):
+        """Load and validate credentials from environment variables"""
+        # Bybit API credentials
+        self.api_key = os.getenv('BYBIT_API_KEY')
+        self.api_secret = os.getenv('BYBIT_API_SECRET')
+        
+        # Telegram credentials
+        self.telegram_token = os.getenv('TELEGRAM_TOKEN')
+        self.telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID')
+        self.telegram_thread_id = int(os.getenv('TELEGRAM_THREAD_ID', '0'))
+        
+        # Validate required credentials
+        missing_vars = []
+        if not self.api_key:
+            missing_vars.append('BYBIT_API_KEY')
+        if not self.api_secret:
+            missing_vars.append('BYBIT_API_SECRET')
+        if not self.telegram_token:
+            missing_vars.append('TELEGRAM_TOKEN')
+        if not self.telegram_chat_id:
+            missing_vars.append('TELEGRAM_CHAT_ID')
+            
+        if missing_vars:
+            raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
 
     async def send_telegram_message(self, message: str):
         """Send message to Telegram"""
@@ -293,34 +316,43 @@ class TradingBot:
         print("entering monitor_trade method")
         while self.current_position is not None:
             try:
-                logging.info("Checking trade status")
-                print("checking trade status")
-                # Get current price
-                ticker = self.bybit_client.get_tickers(
+                logging.info("Checking position status")
+                print("checking position status")
+                
+                # Get position information from Bybit
+                positions = self.bybit_client.get_positions(
                     category="linear",
                     symbol=self.symbol
                 )
-                current_price = float(ticker['result']['list'][0]['lastPrice'])
                 
-                # Check for take profit or stop loss
-                if self.current_position["direction"] == "long":
-                    if current_price >= take_profit:
-                        await self.notify_trade_closure(current_price, "TP Reached")
-                        break
-                    elif current_price <= stop_loss:
-                        await self.notify_trade_closure(current_price, "SL Reached")
-                        break
-                else:  # short position
-                    if current_price <= take_profit:
-                        await self.notify_trade_closure(current_price, "TP Reached")
-                        break
-                    elif current_price >= stop_loss:
-                        await self.notify_trade_closure(current_price, "SL Reached")
-                        break
-                logging.info("Waiting 5 minutes before next check")
-                print("waiting 5 minutes before next check")
+                # Check if position still exists
+                position_exists = False
+                if positions and 'result' in positions and 'list' in positions['result']:
+                    for position in positions['result']['list']:
+                        if float(position['size']) > 0:
+                            position_exists = True
+                            break
+                
+                # If position no longer exists, it means TP or SL was hit
+                if not position_exists:
+                    # Get the latest price for PnL calculation
+                    ticker = self.bybit_client.get_tickers(
+                        category="linear",
+                        symbol=self.symbol
+                    )
+                    current_price = float(ticker['result']['list'][0]['lastPrice'])
+                    
+                    # Determine if it was TP or SL based on the exit price
+                    if self.current_position["direction"] == "long":
+                        reason = "TP Reached" if current_price >= take_profit else "SL Reached"
+                    else:
+                        reason = "TP Reached" if current_price <= take_profit else "SL Reached"
+                    
+                    await self.notify_trade_closure(current_price, reason)
+                    break
+                    
                 # Wait before checking again
-                await asyncio.sleep(300)  # Check every 5 seconds
+                await asyncio.sleep(300)  # Check every 5 minutes
                 
             except Exception as e:
                 logging.error(f"Error monitoring trade: {e}")
